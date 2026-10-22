@@ -37,3 +37,4 @@ Request may be read from stdin with `--request -`; policy must be a separate fil
 - Reject bool/float/negative/oversized uint256 values, malformed addresses, different Permit schemas, DAI/Permit2, missing domain binding, type/value disagreement, unknown fields, duplicate JSON keys, and malformed files.
 - Deterministic report, CLI exit codes/stdin/text output, no tracebacks for invalid input, no network or key material required.
 - `task check` passes. README documents exact commands, data formats, trust boundary, supported/unsupported cases, and primary specifications. Examples are synthetic. A short threat model describes what the checker can and cannot establish.
+
