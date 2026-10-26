@@ -210,6 +210,22 @@ def check_permit(typed_data: object, policy: object, *, at_time: int) -> dict[st
     ):
         if actual != wanted:
             add(code, field, message, actual, wanted)
+    if permit.value > expected.max_value:
+        add(
+            "value_exceeds_limit",
+            "message.value",
+            "Allowance exceeds the policy limit.",
+            str(permit.value),
+            str(expected.max_value),
+        )
+    if permit.nonce != expected.expected_nonce:
+        add(
+            "nonce_mismatch",
+            "message.nonce",
+            "Nonce does not match the policy.",
+            str(permit.nonce),
+            str(expected.expected_nonce),
+        )
     return {
         "decision": "reject" if findings else "allow",
         "findings": findings,

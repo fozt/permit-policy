@@ -95,6 +95,8 @@ def test_matches_policy_without_mutating_inputs(
         ("domain", "verifyingContract", OTHER, "token_mismatch"),
         ("message", "owner", OTHER, "owner_mismatch"),
         ("message", "spender", OTHER, "spender_mismatch"),
+        ("message", "nonce", 8, "nonce_mismatch"),
+        ("message", "value", 1001, "value_exceeds_limit"),
     ],
 )
 def test_rejects_each_policy_mismatch(
@@ -109,6 +111,37 @@ def test_rejects_each_policy_mismatch(
     report = check_permit(request_data, policy, at_time=NOW)
     assert report["decision"] == "reject"
     assert [finding["code"] for finding in findings(report)] == [code]
+
+
+@pytest.mark.parametrize("amount", [0, 1000, UINT256_MAX])
+def test_amount_and_revocation_boundaries(
+    request_data: JsonObject, policy: JsonObject, amount: int
+) -> None:
+    request_data["message"]["value"] = hex(amount)
+    policy["max_value"] = str(amount)
+    report = check_permit(request_data, policy, at_time=NOW)
+    assert report["decision"] == "allow"
+    assert cast(JsonObject, report["permit"])["value"] == str(amount)
+
+
+def test_large_numbers_remain_exact(request_data: JsonObject, policy: JsonObject) -> None:
+    request_data["domain"]["chainId"] = hex(UINT256_MAX)
+    policy["chain_id"] = str(UINT256_MAX)
+    request_data["message"].update(value=UINT256_MAX, nonce=UINT256_MAX, deadline=UINT256_MAX)
+    policy.update(
+        max_value=UINT256_MAX - 1, expected_nonce=UINT256_MAX, max_ttl_seconds=UINT256_MAX
+    )
+    report = check_permit(request_data, policy, at_time=UINT256_MAX)
+    assert len(findings(report)) == 1
+    finding = findings(report)[0]
+    assert finding["code"] == "value_exceeds_limit"
+    assert finding["field"] == "message.value"
+    assert finding["actual"] == str(UINT256_MAX)
+    assert finding["expected"] == str(UINT256_MAX - 1)
+    normalized = cast(JsonObject, report["permit"])
+    assert normalized["chain_id"] == str(UINT256_MAX)
+    assert normalized["nonce"] == str(UINT256_MAX)
+    assert normalized["deadline"] == str(UINT256_MAX)
 
 
 def test_addresses_are_compared_by_value(request_data: JsonObject, policy: JsonObject) -> None:
