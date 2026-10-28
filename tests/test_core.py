@@ -97,6 +97,8 @@ def test_matches_policy_without_mutating_inputs(
         ("message", "spender", OTHER, "spender_mismatch"),
         ("message", "nonce", 8, "nonce_mismatch"),
         ("message", "value", 1001, "value_exceeds_limit"),
+        ("message", "deadline", NOW - 1, "permit_expired"),
+        ("message", "deadline", NOW + 61, "ttl_exceeds_limit"),
     ],
 )
 def test_rejects_each_policy_mismatch(
@@ -111,6 +113,26 @@ def test_rejects_each_policy_mismatch(
     report = check_permit(request_data, policy, at_time=NOW)
     assert report["decision"] == "reject"
     assert [finding["code"] for finding in findings(report)] == [code]
+
+
+@pytest.mark.parametrize("deadline", [NOW, NOW + 60])
+def test_deadline_and_ttl_inclusive_boundaries(
+    request_data: JsonObject, policy: JsonObject, deadline: int
+) -> None:
+    request_data["message"]["deadline"] = deadline
+    assert check_permit(request_data, policy, at_time=NOW)["decision"] == "allow"
+
+
+def test_zero_ttl_accepts_only_current_deadline(
+    request_data: JsonObject, policy: JsonObject
+) -> None:
+    policy["max_ttl_seconds"] = 0
+    request_data["message"]["deadline"] = NOW
+    assert check_permit(request_data, policy, at_time=NOW)["decision"] == "allow"
+    request_data["message"]["deadline"] = NOW + 1
+    assert (
+        findings(check_permit(request_data, policy, at_time=NOW))[0]["code"] == "ttl_exceeds_limit"
+    )
 
 
 @pytest.mark.parametrize("amount", [0, 1000, UINT256_MAX])

@@ -226,6 +226,23 @@ def check_permit(typed_data: object, policy: object, *, at_time: int) -> dict[st
             str(permit.nonce),
             str(expected.expected_nonce),
         )
+    if permit.deadline < at_time:
+        add(
+            "permit_expired",
+            "message.deadline",
+            "Permit has expired at the evaluation time.",
+            str(permit.deadline),
+            str(at_time),
+        )
+    ttl = permit.deadline - at_time
+    if ttl > expected.max_ttl_seconds:
+        add(
+            "ttl_exceeds_limit",
+            "ttl_seconds",
+            "Permit lifetime exceeds the policy limit.",
+            str(ttl),
+            str(expected.max_ttl_seconds),
+        )
     return {
         "decision": "reject" if findings else "allow",
         "findings": findings,
