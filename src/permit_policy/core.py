@@ -243,6 +243,24 @@ def check_permit(typed_data: object, policy: object, *, at_time: int) -> dict[st
             str(ttl),
             str(expected.max_ttl_seconds),
         )
+    for code, field, message, actual, wanted in (
+        (
+            "domain_name_mismatch",
+            "domain.name",
+            "Domain name does not match the policy.",
+            permit.domain_name,
+            expected.domain_name,
+        ),
+        (
+            "domain_version_mismatch",
+            "domain.version",
+            "Domain version does not match the policy.",
+            permit.domain_version,
+            expected.domain_version,
+        ),
+    ):
+        if wanted is not None and actual != wanted:
+            add(code, field, message, actual, wanted)
     return {
         "decision": "reject" if findings else "allow",
         "findings": findings,

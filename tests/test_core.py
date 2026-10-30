@@ -115,6 +115,31 @@ def test_rejects_each_policy_mismatch(
     assert [finding["code"] for finding in findings(report)] == [code]
 
 
+def test_reports_all_mismatches_in_stable_order(
+    request_data: JsonObject, policy: JsonObject
+) -> None:
+    request_data["domain"].update(chainId=2, verifyingContract=OTHER, name="Other", version="2")
+    request_data["message"].update(
+        owner=OTHER, spender=OTHER, value=1001, nonce=8, deadline=NOW + 61
+    )
+    policy.update(domain_name="Synthetic Token", domain_version="1")
+    first = check_permit(request_data, policy, at_time=NOW)
+    assert first == check_permit(request_data, policy, at_time=NOW)
+    assert [finding["code"] for finding in findings(first)] == [
+        "chain_mismatch",
+        "token_mismatch",
+        "owner_mismatch",
+        "spender_mismatch",
+        "value_exceeds_limit",
+        "nonce_mismatch",
+        "ttl_exceeds_limit",
+        "domain_name_mismatch",
+        "domain_version_mismatch",
+    ]
+    assert all(isinstance(item["actual"], str) for item in findings(first))
+    assert all(isinstance(item["expected"], str) for item in findings(first))
+
+
 @pytest.mark.parametrize("deadline", [NOW, NOW + 60])
 def test_deadline_and_ttl_inclusive_boundaries(
     request_data: JsonObject, policy: JsonObject, deadline: int
@@ -321,6 +346,26 @@ def test_rejects_nonstring_policy_domain_binding(
     policy[field] = None
     with pytest.raises(InputError):
         check_permit(request_data, policy, at_time=NOW)
+
+
+@pytest.mark.parametrize(
+    ("key", "policy_key"), [("name", "domain_name"), ("version", "domain_version")]
+)
+def test_optional_domain_binding_mismatch_and_absence(
+    request_data: JsonObject, policy: JsonObject, key: str, policy_key: str
+) -> None:
+    policy[policy_key] = request_data["domain"][key]
+    assert check_permit(request_data, policy, at_time=NOW)["decision"] == "allow"
+    del request_data["domain"][key]
+    request_data["types"]["EIP712Domain"] = [
+        field for field in request_data["types"]["EIP712Domain"] if field["name"] != key
+    ]
+    report = check_permit(request_data, policy, at_time=NOW)
+    assert report["decision"] == "reject"
+    assert findings(report)[0]["code"] == f"domain_{key}_mismatch"
+    assert findings(report)[0]["actual"] is None
+    del policy[policy_key]
+    assert check_permit(request_data, policy, at_time=NOW)["decision"] == "allow"
 
 
 @pytest.mark.parametrize("salt", ["0x" + "12" * 32, "0x" + "aB" * 32])
