@@ -1,0 +1,11 @@
+{
+  "chain_id": "1",
+  "token": "0x1111111111111111111111111111111111111111",
+  "owner": "0x2222222222222222222222222222222222222222",
+  "spender": "0x3333333333333333333333333333333333333333",
+  "max_value": "1000000",
+  "expected_nonce": "7",
+  "max_ttl_seconds": "300",
+  "domain_name": "Example Token",
+  "domain_version": "1"
+}
