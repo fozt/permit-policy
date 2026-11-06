@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Never
+from typing import Never, cast
 
 from permit_policy.core import check_permit
 from permit_policy.validation import InputError, parse_uint256
@@ -60,6 +60,15 @@ def _read_json(path: str, *, label: str, allow_stdin: bool = False) -> object:
         ) from None
 
 
+def _text_report(report: dict[str, object]) -> str:
+    if report["decision"] == "allow":
+        return "Allowed: request matches the policy."
+    lines = ["Rejected: request does not match the policy."]
+    for finding in cast(list[dict[str, object]], report["findings"]):
+        lines.append(f"- {finding['field']}: {finding['message']}")
+    return "\n".join(lines)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="permit-policy",
@@ -81,7 +90,7 @@ def _parser() -> argparse.ArgumentParser:
         help="Evaluation time in Unix seconds.",
     )
     check.add_argument(
-        "--format", choices=("json",), default="json", help="Output format (default: json)."
+        "--format", choices=("json", "text"), default="json", help="Output format (default: json)."
     )
     return parser
 
@@ -101,7 +110,11 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    output = json.dumps(report, indent=2, ensure_ascii=True)
+    output = (
+        json.dumps(report, indent=2, ensure_ascii=True)
+        if args.format == "json"
+        else _text_report(report)
+    )
     try:
         print(output)
     except OSError:

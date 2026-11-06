@@ -81,6 +81,19 @@ def test_request_can_be_read_from_stdin() -> None:
     assert json.loads(result.stdout)["decision"] == "allow"
 
 
+@pytest.mark.parametrize("request_name", ["request.json", "rejected-spender.json"])
+def test_text_output_agrees_with_json_decision(request_name: str) -> None:
+    json_result = check_request(EXAMPLES / request_name)
+    text_result = check_request(EXAMPLES / request_name, output_format="text")
+    report = json.loads(json_result.stdout)
+    assert text_result.returncode == json_result.returncode
+    assert text_result.stderr == b""
+    expected_prefix = b"Allowed:" if report["decision"] == "allow" else b"Rejected:"
+    assert text_result.stdout.startswith(expected_prefix)
+    for finding in report["findings"]:
+        assert finding["field"].encode() in text_result.stdout
+
+
 def test_full_uint256_survives_json_input_and_output(tmp_path: Path) -> None:
     request = json.loads((EXAMPLES / "request.json").read_text())
     request["message"]["value"] = UINT256_MAX
@@ -206,6 +219,18 @@ def test_unknown_policy_keys_are_not_disclosed(tmp_path: Path) -> None:
     assert b"private-marker" not in result.stderr
     assert b"\x1b" not in result.stderr
     assert b"Traceback" not in result.stderr
+
+
+def test_text_findings_do_not_render_untrusted_domain_strings(tmp_path: Path) -> None:
+    request = json.loads((EXAMPLES / "request.json").read_text())
+    request["domain"]["name"] = "private-marker\x1b[31m"
+    result = check_request(
+        write_request(tmp_path, json.dumps(request).encode()), output_format="text"
+    )
+    assert result.returncode == 1
+    assert b"private-marker" not in result.stdout
+    assert b"\x1b" not in result.stdout
+    assert result.stderr == b""
 
 
 def test_policy_must_be_a_separate_file() -> None:
