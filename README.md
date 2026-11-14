@@ -101,7 +101,7 @@ print(report["decision"])
 
 Keep the policy and evaluation time outside the requesting agent's control. A trusted signer must enforce the result and sign exactly the checked data. Obtain `expected_nonce` from an independent trusted source immediately before use; this checker has no RPC access, nonce reservation, replay protection, or signing capability.
 
-Install development dependencies with `uv sync`, then run:
+Development checks also require [Task](https://taskfile.dev/). Install project dependencies with `uv sync`, then run:
 
 ```sh
 task check
