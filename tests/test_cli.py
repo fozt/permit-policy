@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -79,6 +80,36 @@ def test_request_can_be_read_from_stdin() -> None:
     )
     assert result.returncode == 0
     assert json.loads(result.stdout)["decision"] == "allow"
+
+
+def test_closed_output_pipe_has_a_clean_io_error() -> None:
+    reader, writer = os.pipe()
+    os.close(reader)
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "permit_policy",
+                "check",
+                "--request",
+                str(EXAMPLES / "request.json"),
+                "--policy",
+                str(EXAMPLES / "policy.json"),
+                "--at-time",
+                str(AT_TIME),
+            ],
+            stdout=writer,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    finally:
+        os.close(writer)
+    assert result.returncode == 2
+    assert b"Error:" in result.stderr
+    assert b"Traceback" not in result.stderr
+    assert b"Exception ignored" not in result.stderr
+    assert b"BrokenPipeError" not in result.stderr
 
 
 @pytest.mark.parametrize("request_name", ["request.json", "rejected-spender.json"])

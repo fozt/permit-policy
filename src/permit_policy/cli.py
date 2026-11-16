@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Never, cast
@@ -117,7 +118,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         print(output)
+        sys.stdout.flush()
     except OSError:
+        with open(os.devnull, "wb") as sink:
+            os.dup2(sink.fileno(), sys.stdout.fileno())
         print("Error: Could not write the report. Check the output destination.", file=sys.stderr)
         return 2
     return 0 if report["decision"] == "allow" else 1
